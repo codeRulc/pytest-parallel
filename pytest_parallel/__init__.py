@@ -61,6 +61,7 @@ def process_with_threads(config, queue, session, tests_per_worker, errors):
     # pytest process. First thing we need to do is to change config's value
     # so we know we are running as a worker.
     config.parallel_worker = True
+    session.config.hook.pytest_testprocessready()
 
     threads = []
     for _ in range(tests_per_worker):
@@ -79,6 +80,8 @@ class ThreadWorker(threading.Thread):
 
     def run(self):
         pickling_support.install()
+        self.session.config.hook.pytest_testthreadready()
+
         max_fail = self.session.config.getvalue("maxfail")
         while True:
             try:
@@ -232,8 +235,8 @@ class ParallelRunner(object):
 
     def pytest_runtestloop(self, session):
         if (
-            session.testsfailed
-            and not session.config.option.continue_on_collection_errors
+                session.testsfailed
+                and not session.config.option.continue_on_collection_errors
         ):
             raise session.Interrupted(
                 "%d error%s during collection"
@@ -250,7 +253,7 @@ class ParallelRunner(object):
                 tests_per_worker = 50
             if tests_per_worker:
                 tests_per_worker = int(tests_per_worker)
-                evenly_divided = math.ceil(len(session.items)/self.workers)
+                evenly_divided = math.ceil(len(session.items) / self.workers)
                 tests_per_worker = min(tests_per_worker, evenly_divided)
             else:
                 tests_per_worker = 1
@@ -378,3 +381,18 @@ class ParallelRunner(object):
                     queue.task_done()
                 except ConnectionRefusedError:
                     pass
+
+
+class Hooks:
+
+    @staticmethod
+    def pytest_testthreadready():
+        """ Test Node is ready to operate. """
+
+    @staticmethod
+    def pytest_testprocessready():
+        """ Test Node is ready to operate. """
+
+
+def pytest_addhooks(pluginmanager):
+    pluginmanager.add_hookspecs(Hooks)
