@@ -79,6 +79,7 @@ class ThreadWorker(threading.Thread):
 
     def run(self):
         pickling_support.install()
+        max_fail = self.session.config.getvalue("maxfail")
         while True:
             try:
                 index = self.queue.get()
@@ -101,6 +102,17 @@ class ThreadWorker(threading.Thread):
                     self.queue.task_done()
                 except ConnectionRefusedError:
                     pass
+
+            if 0 < max_fail <= self.errors.qsize():
+                try:
+                    index = self.queue.get()
+                    if index == 'stop':
+                        self.queue.task_done()
+                        break
+                    self.queue.task_done()
+                except ConnectionRefusedError:
+                    time.sleep(.1)
+                    continue
 
 
 @pytest.mark.trylast
